@@ -15,6 +15,8 @@ import Reports from './admin/pages/Reports';
 import Settings from './admin/pages/Settings';
 import OfficeQR from './admin/pages/OfficeQR';
 
+import AdminLogin from './admin/pages/AdminLogin';
+
 // Employee Pages
 import Login from './employee/pages/Login';
 import Scanner from './employee/pages/Scanner';
@@ -30,8 +32,7 @@ const EmployeeGuard = ({ children }) => {
 // Admin Guard
 const AdminGuard = ({ children }) => {
   const isAdmin = localStorage.getItem('clinic_admin_token') === 'true';
-  // For production, this should be real auth. For demo, we allow it or redirect.
-  // if (!isAdmin) return <Navigate to="/admin/login" />;
+  if (!isAdmin) return <Navigate to="/admin/login" />;
   return children;
 };
 
@@ -65,6 +66,7 @@ function App() {
         } />
 
         {/* Admin Dashboard Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={
           <AdminGuard>
             <AdminLayout><AdminDashboard /></AdminLayout>
@@ -90,7 +92,11 @@ function App() {
             <AdminLayout><Reports /></AdminLayout>
           </AdminGuard>
         } />
-        <Route path="/admin/qr" element={<OfficeQR />} />
+        <Route path="/admin/qr" element={
+          <AdminGuard>
+            <OfficeQR />
+          </AdminGuard>
+        } />
         <Route path="/admin/settings" element={
           <AdminGuard>
             <AdminLayout><Settings /></AdminLayout>
@@ -99,6 +105,7 @@ function App() {
 
         {/* Redirects */}
         <Route path="/" element={<Navigate to="/app" />} />
+        <Route path="*" element={<Navigate to="/app" />} />
       </Routes>
     </Router>
   );
