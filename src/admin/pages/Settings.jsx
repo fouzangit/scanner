@@ -9,24 +9,55 @@ const Settings = () => {
     office_longitude: 0,
     allowed_radius: 100
   });
+  const [settingsId, setSettingsId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
-    const { data } = await supabase.from('settings').select('*').single();
-    if (data) setSettings(data);
+    const { data } = await supabase.from('settings').select('*').limit(1).single();
+    if (data) {
+      setSettings(data);
+      setSettingsId(data.id);
+    }
     setLoading(false);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase.from('settings').update(settings).eq('id', 1); // Assuming ID 1 for global settings
-    if (error) alert(error.message);
+    setSaved(false);
+
+    const { office_latitude, office_longitude, allowed_radius } = settings;
+    let error;
+
+    if (settingsId) {
+      // Update existing row
+      ({ error } = await supabase
+        .from('settings')
+        .update({ office_latitude, office_longitude, allowed_radius })
+        .eq('id', settingsId));
+    } else {
+      // Insert first-time row
+      const { data, error: insertError } = await supabase
+        .from('settings')
+        .insert([{ office_latitude, office_longitude, allowed_radius }])
+        .select()
+        .single();
+      error = insertError;
+      if (data) setSettingsId(data.id);
+    }
+
+    if (error) {
+      alert('Save failed: ' + error.message);
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
     setSaving(false);
   };
 
@@ -107,9 +138,13 @@ const Settings = () => {
         <button 
           type="submit" 
           disabled={saving}
-          className="btn-primary w-full py-5 text-lg shadow-glow-brand"
+          className={`w-full py-5 text-lg font-black rounded-xl transition-all ${
+            saved 
+              ? 'bg-green-600 text-white shadow-lg shadow-green-600/30' 
+              : 'btn-primary'
+          }`}
         >
-          {saving ? 'SAVING...' : 'SAVE CONFIGURATION'}
+          {saving ? 'SAVING...' : saved ? '✅ SAVED SUCCESSFULLY!' : 'SAVE CONFIGURATION'}
         </button>
       </form>
     </div>
