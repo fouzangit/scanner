@@ -34,32 +34,27 @@ const Scanner = () => {
       return;
     }
 
-    // Instantly lock scanner to prevent double scans
     setLoading(true);
+    setIsScanning(false);
     setStatusMsg('Validating Location...');
 
-    // Micro-delay stops decoding frame collision crash in html5-qrcode
-    setTimeout(async () => {
-      setIsScanning(false);
-
-      try {
-        const result = await attendanceService.markAttendance(employee);
-        
-        if (result.type === 'checkout') {
-          setSuccessMsg(`Check-out successful for your ${employee.shift_type} shift!`);
-        } else {
-          setSuccessMsg(`Check-in successful for your ${employee.shift_type} shift!`);
-        }
-        
-        setShowSuccess(true);
-      } catch (err) {
-        setErrorMsg(err.message || 'An unexpected error occurred.');
-        setShowError(true);
-        setIsScanning(true);
-        setLoading(false);
-        setStatusMsg('Align QR to mark attendance');
+    try {
+      const result = await attendanceService.markAttendance(employee);
+      
+      if (result.type === 'checkout') {
+        setSuccessMsg(`Check-out successful for your ${employee.shift_type} shift!`);
+      } else {
+        setSuccessMsg(`Check-in successful for your ${employee.shift_type} shift!`);
       }
-    }, 150);
+      
+      setShowSuccess(true);
+    } catch (err) {
+      setErrorMsg(err.message || 'An unexpected error occurred.');
+      setShowError(true);
+      setIsScanning(true);
+      setLoading(false);
+      setStatusMsg('Align QR to mark attendance');
+    }
   };
 
   if (!employee) return null;

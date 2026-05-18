@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const QRScanner = ({ onScan, isScanning }) => {
   const [error, setError] = useState(null);
   const scannerRef = useRef(null);
+  const isScanningRef = useRef(isScanning);
+
+  // Sync ref with isScanning prop to always have latest value in callbacks
+  useEffect(() => {
+    isScanningRef.current = isScanning;
+  }, [isScanning]);
 
   useEffect(() => {
-    if (!isScanning) {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(console.error);
-      }
-      return;
-    }
-
     const html5QrCode = new Html5Qrcode("qr-reader");
     scannerRef.current = html5QrCode;
 
@@ -26,6 +25,7 @@ const QRScanner = ({ onScan, isScanning }) => {
     Html5Qrcode.getCameras().then(devices => {
       if (devices && devices.length > 0) {
         let cameraId = devices[0].id;
+        // Prefer back camera for scanning
         const backCamera = devices.find(d => d.label.toLowerCase().includes('back'));
         if (backCamera) cameraId = backCamera.id;
 
@@ -33,8 +33,11 @@ const QRScanner = ({ onScan, isScanning }) => {
           cameraId, 
           config, 
           (decodedText) => {
-            if (navigator.vibrate) navigator.vibrate(100);
-            onScan(decodedText);
+            // Only fire scan event if scanning is active (prevents race-condition loops)
+            if (isScanningRef.current) {
+              if (navigator.vibrate) navigator.vibrate(100);
+              onScan(decodedText);
+            }
           },
           (errorMessage) => {}
         ).catch(err => {
@@ -49,12 +52,19 @@ const QRScanner = ({ onScan, isScanning }) => {
       console.error(err);
     });
 
+    // Cleanup and stop only when component unmounts
     return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(console.error);
+      if (scannerRef.current) {
+        scannerRef.current.stop()
+          .then(() => {
+            console.log("Scanner stopped successfully on unmount.");
+          })
+          .catch(err => {
+            console.warn("Scanner stopped with warning:", err.message);
+          });
       }
     };
-  }, [isScanning]);
+  }, []); // Run only once on mount
 
   return (
     <div className="relative w-full max-w-md mx-auto overflow-hidden rounded-3xl border-4 border-white/10 shadow-glow">
@@ -76,7 +86,7 @@ const QRScanner = ({ onScan, isScanning }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute bottom-4 left-4 right-4 bg-red-500/90 backdrop-blur-md text-white p-3 rounded-xl text-center text-sm"
+            className="absolute bottom-4 left-4 right-4 bg-red-500/90 backdrop-blur-md text-white p-3 rounded-xl text-center text-sm z-30"
           >
             {error}
           </motion.div>
