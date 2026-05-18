@@ -24,7 +24,7 @@ export const payrollService = {
       // 3. Process payroll for each employee
       const payrollData = employees.map(emp => {
         const empAttendance = attendance.filter(a => a.employee_id === emp.id);
-        const stats = calculatePayrollStats(empAttendance, emp.hourly_rate, emp.monthly_salary);
+        const stats = calculatePayrollStats(empAttendance, emp.hourly_rate, emp.monthly_salary, startDate, endDate);
         
         return {
           employee_id: emp.id,
