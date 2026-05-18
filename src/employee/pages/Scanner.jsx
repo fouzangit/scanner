@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRScanner from '../../components/QRScanner';
 import SuccessPopup from '../../components/SuccessPopup';
+import ErrorPopup from '../../components/ErrorPopup';
 import { attendanceService } from '../../services/attendanceService';
 import { authService } from '../../services/authService';
 
@@ -11,7 +12,9 @@ const Scanner = () => {
   const [isScanning, setIsScanning] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [statusMsg, setStatusMsg] = useState('Align QR to mark attendance');
   const navigate = useNavigate();
 
@@ -46,7 +49,8 @@ const Scanner = () => {
       
       setShowSuccess(true);
     } catch (err) {
-      alert(err.message);
+      setErrorMsg(err.message || 'An unexpected error occurred.');
+      setShowError(true);
       setIsScanning(true);
       setLoading(false);
       setStatusMsg('Align QR to mark attendance');
@@ -125,6 +129,18 @@ const Scanner = () => {
         }}
         title="Attendance Marked!"
         message={successMsg}
+      />
+
+      <ErrorPopup 
+        isOpen={showError} 
+        onClose={() => {
+          setShowError(false);
+          setIsScanning(true);
+          setLoading(false);
+          setStatusMsg('Align QR to mark attendance');
+        }}
+        title="Validation Failed"
+        message={errorMsg}
       />
     </div>
   );

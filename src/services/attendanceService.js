@@ -10,20 +10,30 @@ export const attendanceService = {
       const { data: settings, error: settingsError } = await supabase
         .from('settings')
         .select('*')
-        .single();
+        .limit(1)
+        .maybeSingle();
       
-      if (settingsError) throw new Error('Could not fetch office settings');
+      if (settingsError) throw new Error('Could not fetch office settings. Contact admin.');
 
-      // 2. Validate GPS
-      const locValidation = await validateLocation(
-        settings.office_latitude, 
-        settings.office_longitude, 
-        settings.allowed_radius
-      );
+      // 2. Validate GPS only if office location has been configured (not 0,0)
+      const gpsConfigured = settings && 
+        settings.office_latitude !== 0 && 
+        settings.office_longitude !== 0;
 
-      if (!locValidation.isValid) {
-        throw new Error(`You are outside the office radius (${locValidation.distance}m away)`);
+      let locationCoords = { latitude: 0, longitude: 0 };
+
+      if (gpsConfigured) {
+        const locValidation = await validateLocation(
+          settings.office_latitude, 
+          settings.office_longitude, 
+          settings.allowed_radius
+        );
+        if (!locValidation.isValid) {
+          throw new Error(`You are ${locValidation.distance}m away from the office. Please be inside the clinic to mark attendance.`);
+        }
+        locationCoords = locValidation.coords;
       }
+      // If GPS not configured yet, skip location check and allow attendance
 
       // 2.5 Determine actual shift for 'both'
       const now = new Date();
@@ -46,51 +56,57 @@ export const attendanceService = {
 
       if (existing) {
         if (existing.check_out_time) {
-          throw new Error(`Attendance already completed for today's ${actualShiftType} shift`);
+          throw new Error(`Attendance already completed for today's ${actualShiftType} shift.`);
         }
 
         // --- CHECK OUT FLOW ---
         const earlyMinutes = calculateEarlyLeaveMinutes(now, employee.role, actualShiftType);
-        const earlyDeduction = calculateDeduction(earlyMinutes, employee.hourly_rate);
-        const totalDeduction = existing.deduction_amount + earlyDeduction;
+        const earlyDeduction = calculateDeduction(earlyMinutes, employee.hourly_rate || 0);
+        const totalDeduction = (existing.deduction_amount || 0) + earlyDeduction;
+
+        const updatePayload = {
+          check_out_time: now.toISOString(),
+          deduction_amount: totalDeduction
+        };
+        // Only include early_leave_minutes if column exists (safe update)
+        try { updatePayload.early_leave_minutes = earlyMinutes; } catch (_) {}
 
         const { data, error } = await supabase
           .from('attendance')
-          .update({
-            check_out_time: now.toISOString(),
-            early_leave_minutes: earlyMinutes,
-            deduction_amount: totalDeduction
-          })
+          .update(updatePayload)
           .eq('id', existing.id)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error('Check-out failed: ' + error.message);
         return { data, type: 'checkout' };
       }
 
       // --- CHECK IN FLOW ---
       const lateMinutes = calculateLateMinutes(now, employee.role, actualShiftType);
-      const deduction = calculateDeduction(lateMinutes, employee.hourly_rate);
+      const deduction = calculateDeduction(lateMinutes, employee.hourly_rate || 0);
+
+      const insertPayload = {
+        employee_id: employee.id,
+        date: todayStr,
+        check_in_time: now.toISOString(),
+        shift_type: actualShiftType,
+        late_minutes: lateMinutes,
+        deduction_amount: deduction,
+        attendance_status: 'present',
+        latitude: locationCoords.latitude,
+        longitude: locationCoords.longitude
+      };
 
       const { data, error } = await supabase
         .from('attendance')
-        .insert([{
-          employee_id: employee.id,
-          date: todayStr,
-          check_in_time: now.toISOString(),
-          shift_type: actualShiftType,
-          late_minutes: lateMinutes,
-          deduction_amount: deduction,
-          attendance_status: 'present',
-          latitude: locValidation.coords.latitude,
-          longitude: locValidation.coords.longitude
-        }])
+        .insert([insertPayload])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) throw new Error('Check-in failed: ' + error.message);
       return { data, type: 'checkin' };
+
     } catch (err) {
       throw err;
     }
