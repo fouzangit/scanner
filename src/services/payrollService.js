@@ -33,6 +33,7 @@ export const payrollService = {
           shift_type: emp.shift_type,
           payroll_start_date: startDate,
           payroll_end_date: endDate,
+          records: empAttendance,
           ...stats
         };
       });
