@@ -29,7 +29,7 @@ export const attendanceService = {
           settings.allowed_radius
         );
         if (!locValidation.isValid) {
-          throw new Error(`You are ${locValidation.distance}m away from the office. Please be inside the clinic to mark attendance.`);
+          throw new Error(`You are ${Math.round(locValidation.distance)}m away from the office.\nYour Device GPS: ${locValidation.coords.latitude.toFixed(5)}, ${locValidation.coords.longitude.toFixed(5)}.\nSave these coordinates in Admin Settings to pass!`);
         }
         locationCoords = locValidation.coords;
       }

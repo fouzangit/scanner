@@ -26,7 +26,7 @@ const ErrorPopup = ({ isOpen, onClose, title, message }) => {
             </div>
             
             <h3 className="text-2xl font-bold text-white mb-2">{title || 'Oops!'}</h3>
-            <p className="text-slate-400 mb-8 text-sm leading-relaxed">{message}</p>
+            <p className="text-slate-400 mb-8 text-sm leading-relaxed whitespace-pre-line">{message}</p>
             
             <button
               onClick={onClose}
