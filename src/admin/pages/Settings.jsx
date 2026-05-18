@@ -31,26 +31,26 @@ const Settings = () => {
   };
 
   return (
-    <div className="max-w-4xl space-y-10">
+    <div className="max-w-4xl space-y-6 md:space-y-10">
       <div>
-        <h3 className="text-3xl font-black">System Settings</h3>
-        <p className="text-slate-500 mt-1">Configure geofencing and office parameters</p>
+        <h3 className="text-2xl md:text-3xl font-black">System Settings</h3>
+        <p className="text-slate-500 mt-1 text-sm hidden sm:block">Configure geofencing and office parameters</p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-8">
+      <form onSubmit={handleSave} className="space-y-6 md:space-y-8">
         {/* Geofencing Config */}
-        <div className="glass-card p-10 space-y-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-brand-600/20 text-brand-400 rounded-2xl flex items-center justify-center text-2xl shadow-glow shadow-brand-500/20">
+        <div className="glass-card p-5 md:p-10 space-y-6 md:space-y-8">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-600/20 text-brand-400 rounded-2xl flex items-center justify-center text-xl md:text-2xl flex-shrink-0">
               📍
             </div>
             <div>
-              <h4 className="text-xl font-bold">Office Geofencing</h4>
-              <p className="text-xs text-slate-500 uppercase font-black tracking-widest mt-1">Gps Validation required for attendance</p>
+              <h4 className="text-base md:text-xl font-bold">Office Geofencing</h4>
+              <p className="text-xs text-slate-500 uppercase font-black tracking-widest mt-1">GPS Validation required for attendance</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
             <div>
               <label className="label">Office Latitude</label>
               <input 
@@ -67,14 +67,14 @@ const Settings = () => {
                 onChange={e => setSettings({...settings, office_longitude: parseFloat(e.target.value)})}
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Allowed Radius (Meters)</label>
               <input 
                 type="number" className="input-field" 
                 value={settings.allowed_radius} 
                 onChange={e => setSettings({...settings, allowed_radius: parseInt(e.target.value)})}
               />
-              <p className="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-widest">Recommended: 100-200 meters for stability</p>
+              <p className="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-widest">Recommended: 100-200 meters</p>
             </div>
           </div>
         </div>
