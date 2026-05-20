@@ -63,9 +63,9 @@ const Scanner = () => {
     <div className="min-h-screen bg-slate-950 p-6 flex flex-col">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-2xl font-black text-white">Hello, {employee.name.split(' ')[0]}</h2>
+          <h2 className="text-2xl font-black text-white">Hello, {employee?.name ? employee.name.split(' ')[0] : 'Employee'}</h2>
           <p className="text-slate-500 text-xs uppercase tracking-widest font-bold">
-            {employee.role} • {employee.shift_type} Shift
+            {employee?.role || ''} • {employee?.shift_type || ''} Shift
           </p>
         </div>
         <Link to="/app/history" className="w-12 h-12 glass-card flex items-center justify-center text-xl">

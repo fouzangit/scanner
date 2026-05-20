@@ -13,49 +13,62 @@ const QRScanner = ({ onScan, isScanning }) => {
   }, [isScanning]);
 
   useEffect(() => {
-    const html5QrCode = new Html5Qrcode("qr-reader");
-    scannerRef.current = html5QrCode;
-
-    const config = { 
-      fps: 10, 
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0
-    };
-
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length > 0) {
-        let cameraId = devices[0].id;
-        // Prefer back camera for scanning
-        const backCamera = devices.find(d => d.label.toLowerCase().includes('back'));
-        if (backCamera) cameraId = backCamera.id;
-
-        html5QrCode.start(
-          cameraId, 
-          config, 
-          (decodedText) => {
-            // Only fire scan event if scanning is active (prevents race-condition loops)
-            if (isScanningRef.current) {
-              if (navigator.vibrate) navigator.vibrate(100);
-              onScan(decodedText);
-            }
-          },
-          (errorMessage) => {}
-        ).catch(err => {
-          setError("Failed to start camera.");
-          console.error(err);
-        });
-      } else {
-        setError("No cameras found on device.");
+    let html5QrCode;
+    
+    try {
+      const container = document.getElementById("qr-reader");
+      if (!container) {
+        console.warn("qr-reader container not found in DOM on mount. Skipping scanner initialization.");
+        return;
       }
-    }).catch(err => {
-      setError("Camera permission denied.");
+      
+      html5QrCode = new Html5Qrcode("qr-reader");
+      scannerRef.current = html5QrCode;
+
+      const config = { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      };
+
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length > 0) {
+          let cameraId = devices[0].id;
+          // Prefer back camera for scanning (check for label presence safely)
+          const backCamera = devices.find(d => d.label && d.label.toLowerCase().includes('back'));
+          if (backCamera) cameraId = backCamera.id;
+
+          html5QrCode.start(
+            cameraId, 
+            config, 
+            (decodedText) => {
+              // Only fire scan event if scanning is active (prevents race-condition loops)
+              if (isScanningRef.current) {
+                if (navigator.vibrate) navigator.vibrate(100);
+                onScan(decodedText);
+              }
+            },
+            (errorMessage) => {}
+          ).catch(err => {
+            setError("Failed to start camera.");
+            console.error(err);
+          });
+        } else {
+          setError("No cameras found on device.");
+        }
+      }).catch(err => {
+        setError("Camera permission denied.");
+        console.error(err);
+      });
+    } catch (err) {
+      setError("Failed to initialize scanner.");
       console.error(err);
-    });
+    }
 
     // Cleanup and stop only when component unmounts
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop()
+      if (html5QrCode) {
+        html5QrCode.stop()
           .then(() => {
             console.log("Scanner stopped successfully on unmount.");
           })
@@ -93,7 +106,7 @@ const QRScanner = ({ onScan, isScanning }) => {
         )}
       </AnimatePresence>
 
-      <style jsx>{`
+      <style>{`
         @keyframes scan {
           0%, 100% { transform: translateY(-120px); }
           50% { transform: translateY(120px); }
