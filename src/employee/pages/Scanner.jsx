@@ -6,6 +6,7 @@ import SuccessPopup from '../../components/SuccessPopup';
 import ErrorPopup from '../../components/ErrorPopup';
 import { attendanceService } from '../../services/attendanceService';
 import { authService } from '../../services/authService';
+import { supabase } from '../../services/supabase';
 
 const Scanner = () => {
   const [employee, setEmployee] = useState(null);
@@ -21,9 +22,47 @@ const Scanner = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (!user) navigate('/app/login');
-    setEmployee(user);
+    const verifyDeviceAndSession = async () => {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        navigate('/app/login');
+        return;
+      }
+
+      try {
+        const { data: latestEmployee, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error || !latestEmployee) {
+          authService.logout();
+          navigate('/app/login');
+          return;
+        }
+
+        const localDeviceId = localStorage.getItem('clinic_device_id');
+        
+        // If device lock was reset (device_id is null) or linked to another device, force relogin
+        if (!latestEmployee.allow_multiple_devices) {
+          if (!latestEmployee.device_id || latestEmployee.device_id !== localDeviceId) {
+            authService.logout();
+            navigate('/app/login');
+            return;
+          }
+        }
+
+        // Keep local cache in sync
+        localStorage.setItem('clinic_employee', JSON.stringify(latestEmployee));
+        setEmployee(latestEmployee);
+      } catch (err) {
+        console.error("Device lock check failed, using cached session:", err);
+        setEmployee(user);
+      }
+    };
+
+    verifyDeviceAndSession();
   }, []);
 
   const getPlaceholderMsg = (type = scanType) => {
