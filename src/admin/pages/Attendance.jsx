@@ -28,7 +28,8 @@ const Attendance = () => {
     date: new Date().toISOString().split('T')[0],
     shift_type: 'morning',
     check_in_time: '09:00',
-    check_out_time: ''
+    check_out_time: '',
+    deduction_amount: 0
   });
 
   useEffect(() => { fetchLogs(); }, []);
@@ -58,7 +59,8 @@ const Attendance = () => {
           date: new Date().toISOString().split('T')[0],
           shift_type: 'morning',
           check_in_time: '09:00',
-          check_out_time: ''
+          check_out_time: '',
+          deduction_amount: 0
         });
         setShowModal(true);
       }
@@ -69,7 +71,6 @@ const Attendance = () => {
 
   const handleEditLog = async (log) => {
     try {
-      // Fetch employees list if not loaded yet
       let list = employeesList;
       if (list.length === 0) {
         const { data } = await supabase
@@ -88,7 +89,8 @@ const Attendance = () => {
         date: log.date,
         shift_type: log.shift_type,
         check_in_time: formatTimeForInput(log.check_in_time),
-        check_out_time: log.check_out_time ? formatTimeForInput(log.check_out_time) : ''
+        check_out_time: log.check_out_time ? formatTimeForInput(log.check_out_time) : '',
+        deduction_amount: log.deduction_amount || 0
       });
       setShowModal(true);
     } catch (err) {
@@ -96,41 +98,62 @@ const Attendance = () => {
     }
   };
 
+  const autoCalculateDeduction = (formData, empList) => {
+    const { employee_id, date, shift_type, check_in_time, check_out_time } = formData;
+    if (!employee_id || !check_in_time) return 0;
+    
+    const emp = empList.find(e => e.id === employee_id);
+    if (!emp) return 0;
+    
+    // Construct local Date objects immune to timezone shifting
+    const [year, month, day] = date.split('-').map(Number);
+    
+    // Check-In Time
+    const [inH, inM] = check_in_time.split(':').map(Number);
+    const checkInDate = new Date(year, month - 1, day, inH, inM, 0, 0);
+    const lateMinutes = calculateLateMinutes(checkInDate.toISOString(), emp.role, shift_type);
+    const lateDeduction = calculateDeduction(lateMinutes, emp.hourly_rate || 0);
+    
+    let earlyDeduction = 0;
+    if (check_out_time) {
+      const [outH, outM] = check_out_time.split(':').map(Number);
+      const checkOutDate = new Date(year, month - 1, day, outH, outM, 0, 0);
+      const earlyLeaveMinutes = calculateEarlyLeaveMinutes(checkOutDate.toISOString(), emp.role, shift_type);
+      earlyDeduction = calculateDeduction(earlyLeaveMinutes, emp.hourly_rate || 0);
+    }
+    
+    return lateDeduction + earlyDeduction;
+  };
+
+  const calculatedDeduction = showModal ? autoCalculateDeduction(manualFormData, employeesList) : 0;
+
   const handleSaveManualAttendance = async (e) => {
     e.preventDefault();
     setSaving(true);
     
     try {
-      const { employee_id, date, shift_type, check_in_time, check_out_time } = manualFormData;
+      const { employee_id, date, shift_type, check_in_time, check_out_time, deduction_amount } = manualFormData;
       if (!employee_id) throw new Error('Please select an employee.');
 
       const emp = employeesList.find(e => e.id === employee_id);
       if (!emp) throw new Error('Selected employee not found.');
       
-      // Calculate Check-In Date/Time
+      // Calculate Check-In Date/Time using timezone-immune constructor
+      const [year, month, day] = date.split('-').map(Number);
       const [inH, inM] = check_in_time.split(':').map(Number);
-      const checkInDate = new Date(date);
-      checkInDate.setHours(inH, inM, 0, 0);
+      const checkInDate = new Date(year, month - 1, day, inH, inM, 0, 0);
       
-      // Calculate late minutes and deduction
       const lateMinutes = calculateLateMinutes(checkInDate.toISOString(), emp.role, shift_type);
-      const lateDeduction = calculateDeduction(lateMinutes, emp.hourly_rate || 0);
       
       let outDateISO = null;
       let earlyLeaveMinutes = 0;
-      let earlyDeduction = 0;
       
       if (check_out_time) {
         const [outH, outM] = check_out_time.split(':').map(Number);
-        const checkOutDate = new Date(date);
-        checkOutDate.setHours(outH, outM, 0, 0);
+        const checkOutDate = new Date(year, month - 1, day, outH, outM, 0, 0);
         outDateISO = checkOutDate.toISOString();
-        
         earlyLeaveMinutes = calculateEarlyLeaveMinutes(outDateISO, emp.role, shift_type);
-        earlyDeduction = calculateDeduction(earlyLeaveMinutes, emp.hourly_rate || 0);
       }
-      
-      const totalDeduction = lateDeduction + earlyDeduction;
       
       if (editingLogId) {
         // Direct Edit of an existing log
@@ -144,7 +167,7 @@ const Attendance = () => {
             shift_type,
             late_minutes: lateMinutes,
             early_leave_minutes: earlyLeaveMinutes,
-            deduction_amount: totalDeduction,
+            deduction_amount: deduction_amount,
             attendance_status: 'present'
           })
           .eq('id', editingLogId);
@@ -168,7 +191,7 @@ const Attendance = () => {
               check_out_time: outDateISO,
               late_minutes: lateMinutes,
               early_leave_minutes: earlyLeaveMinutes,
-              deduction_amount: totalDeduction,
+              deduction_amount: deduction_amount,
               attendance_status: 'present'
             })
             .eq('id', existing.id);
@@ -185,7 +208,7 @@ const Attendance = () => {
               shift_type,
               late_minutes: lateMinutes,
               early_leave_minutes: earlyLeaveMinutes,
-              deduction_amount: totalDeduction,
+              deduction_amount: deduction_amount,
               attendance_status: 'present',
               latitude: 0,
               longitude: 0
@@ -453,6 +476,30 @@ const Attendance = () => {
                     value={manualFormData.check_out_time} 
                     onChange={e => setManualFormData({...manualFormData, check_out_time: e.target.value})}
                   />
+                </div>
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="label">Deduction Amount (₹)</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      className="input-field pr-20 bg-slate-950" 
+                      value={manualFormData.deduction_amount} 
+                      onChange={e => setManualFormData({...manualFormData, deduction_amount: Number(e.target.value)})}
+                      required 
+                    />
+                    {manualFormData.deduction_amount !== calculatedDeduction && (
+                      <button 
+                        type="button"
+                        onClick={() => setManualFormData({...manualFormData, deduction_amount: calculatedDeduction})}
+                        className="absolute right-2 top-2 px-2 py-1 bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 rounded text-[10px] font-bold uppercase transition-all"
+                      >
+                        Auto: ₹{calculatedDeduction}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    System calculated deduction: ₹{calculatedDeduction}. You can manually type your own deduction value.
+                  </p>
                 </div>
                 <div className="col-span-1 sm:col-span-2 pt-4 flex gap-4">
                   <button type="submit" disabled={saving} className="btn-primary flex-1">
