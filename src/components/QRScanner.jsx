@@ -6,11 +6,17 @@ const QRScanner = ({ onScan, isScanning }) => {
   const [error, setError] = useState(null);
   const scannerRef = useRef(null);
   const isScanningRef = useRef(isScanning);
+  const onScanRef = useRef(onScan);
 
   // Sync ref with isScanning prop to always have latest value in callbacks
   useEffect(() => {
     isScanningRef.current = isScanning;
   }, [isScanning]);
+
+  // Sync ref with onScan prop to always have latest callback reference
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,7 +61,7 @@ const QRScanner = ({ onScan, isScanning }) => {
               // Only fire scan event if scanning is active (prevents race-condition loops)
               if (isScanningRef.current && isMounted) {
                 if (navigator.vibrate) navigator.vibrate(100);
-                onScan(decodedText);
+                onScanRef.current(decodedText);
               }
             },
             (errorMessage) => {}
