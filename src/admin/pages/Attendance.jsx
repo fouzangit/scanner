@@ -2,14 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { formatCurrency } from '../../utils/payrollUtils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction } from '../../utils/calculateLate';
+import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction, createISTDate } from '../../utils/calculateLate';
 
 const formatTimeForInput = (isoString) => {
   if (!isoString) return '';
   const d = new Date(isoString);
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
+  // Extract hours and minutes in IST timezone
+  const utcMs = d.getTime();
+  const istMs = utcMs + (5.5 * 60 * 60 * 1000);
+  const istDate = new Date(istMs);
+  const hours = String(istDate.getUTCHours()).padStart(2, '0');
+  const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
+};
+
+const formatTimeIST = (isoString) => {
+  if (!isoString) return '--';
+  return new Date(isoString).toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 };
 
 const Attendance = () => {
@@ -105,19 +119,13 @@ const Attendance = () => {
     const emp = empList.find(e => e.id === employee_id);
     if (!emp) return 0;
     
-    // Construct local Date objects immune to timezone shifting
-    const [year, month, day] = date.split('-').map(Number);
-    
-    // Check-In Time
-    const [inH, inM] = check_in_time.split(':').map(Number);
-    const checkInDate = new Date(year, month - 1, day, inH, inM, 0, 0);
+    const checkInDate = createISTDate(date, check_in_time);
     const lateMinutes = calculateLateMinutes(checkInDate.toISOString(), emp.role, shift_type);
     const lateDeduction = calculateDeduction(lateMinutes, emp.hourly_rate || 0);
     
     let earlyDeduction = 0;
     if (check_out_time) {
-      const [outH, outM] = check_out_time.split(':').map(Number);
-      const checkOutDate = new Date(year, month - 1, day, outH, outM, 0, 0);
+      const checkOutDate = createISTDate(date, check_out_time);
       const earlyLeaveMinutes = calculateEarlyLeaveMinutes(checkOutDate.toISOString(), emp.role, shift_type);
       earlyDeduction = calculateDeduction(earlyLeaveMinutes, emp.hourly_rate || 0);
     }
@@ -154,19 +162,14 @@ const Attendance = () => {
       const emp = employeesList.find(e => e.id === employee_id);
       if (!emp) throw new Error('Selected employee not found.');
       
-      // Calculate Check-In Date/Time using timezone-immune constructor
-      const [year, month, day] = date.split('-').map(Number);
-      const [inH, inM] = check_in_time.split(':').map(Number);
-      const checkInDate = new Date(year, month - 1, day, inH, inM, 0, 0);
-      
+      const checkInDate = createISTDate(date, check_in_time);
       const lateMinutes = calculateLateMinutes(checkInDate.toISOString(), emp.role, shift_type);
       
       let outDateISO = null;
       let earlyLeaveMinutes = 0;
       
       if (check_out_time) {
-        const [outH, outM] = check_out_time.split(':').map(Number);
-        const checkOutDate = new Date(year, month - 1, day, outH, outM, 0, 0);
+        const checkOutDate = createISTDate(date, check_out_time);
 
         // ✅ Prevent checkout before check-in
         if (checkOutDate.getTime() <= checkInDate.getTime()) {
@@ -319,19 +322,22 @@ const Attendance = () => {
                 <p className="font-bold text-white">{log.employees?.name}</p>
                 <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{log.employees?.role}</p>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end gap-1">
                 {log.late_minutes > 0 ? (
                   <span className="text-xs font-black text-amber-400">{log.late_minutes}m Late</span>
                 ) : (
                   <span className="text-xs font-black text-green-400">On Time</span>
                 )}
+                {log.early_leave_minutes > 0 && (
+                  <span className="text-xs font-black text-orange-400">{log.early_leave_minutes}m Early Out</span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
               <span>📅 {log.date}</span>
-              <span>🕐 In: {log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</span>
+              <span>🕐 In: {formatTimeIST(log.check_in_time)}</span>
               {log.check_out_time && (
-                <span>🕓 Out: {new Date(log.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>🕓 Out: {formatTimeIST(log.check_out_time)}</span>
               )}
               <span className="uppercase font-bold">{log.shift_type}</span>
               {log.deduction_amount > 0 && (
@@ -386,13 +392,13 @@ const Attendance = () => {
                 </td>
                 <td className="p-5 text-sm text-slate-300">{log.date}</td>
                 <td className="p-5 text-sm font-bold text-white">
-                  {log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                  {formatTimeIST(log.check_in_time)}
                 </td>
                 <td className="p-5 text-sm font-bold text-slate-300">
-                  {log.check_out_time ? new Date(log.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-slate-600">--</span>}
+                  {formatTimeIST(log.check_out_time)}
                 </td>
                 <td className="p-5 text-xs font-bold uppercase tracking-widest text-slate-400">{log.shift_type}</td>
-                <td className="p-5">
+                <td className="p-5 space-y-1">
                   {log.late_minutes > 0 ? (
                     <div className="flex items-center gap-2">
                        <span className="w-2 h-2 rounded-full bg-amber-500" />
@@ -402,6 +408,12 @@ const Attendance = () => {
                     <div className="flex items-center gap-2">
                        <span className="w-2 h-2 rounded-full bg-green-500" />
                        <span className="text-xs font-bold text-green-400">On Time</span>
+                    </div>
+                  )}
+                  {log.early_leave_minutes > 0 && (
+                    <div className="flex items-center gap-2">
+                       <span className="w-2 h-2 rounded-full bg-orange-500" />
+                       <span className="text-xs font-bold text-orange-400">{log.early_leave_minutes}m Early Out</span>
                     </div>
                   )}
                 </td>

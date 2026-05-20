@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction } from '../utils/calculateLate';
+import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction, checkShiftWindow } from '../utils/calculateLate';
 import { validateLocation } from '../utils/location';
 
 export const attendanceService = {
@@ -79,6 +79,14 @@ export const attendanceService = {
           throw new Error(`No check-in record found to check out.`);
         }
 
+        // Prevent check-out within 5 minutes of check-in to avoid double scans
+        const checkInTime = new Date(recordToUpdate.check_in_time);
+        const elapsedMs = now.getTime() - checkInTime.getTime();
+        const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
+        if (elapsedMinutes < 5) {
+          throw new Error(`Accidental scan detected! Please wait at least 5 minutes after checking in to check out.`);
+        }
+
         // --- CHECK OUT FLOW ---
         const earlyMinutes = calculateEarlyLeaveMinutes(now, employee.role, actualShiftType);
         const earlyDeduction = calculateDeduction(earlyMinutes, employee.hourly_rate || 0);
@@ -103,6 +111,11 @@ export const attendanceService = {
       }
 
       // --- CHECK IN FLOW ---
+      const windowCheck = checkShiftWindow(now, employee.role, actualShiftType);
+      if (!windowCheck.isValid) {
+        throw new Error(windowCheck.message);
+      }
+
       const lateMinutes = calculateLateMinutes(now, employee.role, actualShiftType);
       const deduction = calculateDeduction(lateMinutes, employee.hourly_rate || 0);
 

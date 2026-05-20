@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'ClinicPulse Attendance',
-        short_name: 'ClinicPulse',
-        description: 'Smart QR Attendance & Payroll System for Clinics',
+        name: 'Radent Clinic Attendance',
+        short_name: 'Radent Clinic',
+        description: 'Smart QR Attendance & Payroll System for Radent Clinic',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'fullscreen',

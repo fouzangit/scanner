@@ -16,7 +16,7 @@ const AdminLogin = () => {
   const handleLogin = (e) => {
     e.preventDefault();
     // Simple admin password for this MVP (can be moved to Supabase later)
-    if (password === 'admin123') {
+    if (password === 'radent@2026!') {
       sessionStorage.setItem('clinic_admin_token', 'true');
       navigate('/admin');
     } else {
@@ -35,7 +35,7 @@ const AdminLogin = () => {
           <span className="text-3xl font-black text-white">⚙️</span>
         </div>
         
-        <h1 className="text-3xl font-black text-white mb-2">Clinic Admin</h1>
+        <h1 className="text-3xl font-black text-white mb-2">Radent Clinic Admin</h1>
         <p className="text-slate-500 mb-10 text-sm">Secure Management Portal</p>
 
         <form onSubmit={handleLogin} className="space-y-6 text-left">

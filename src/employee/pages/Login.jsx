@@ -59,7 +59,7 @@ const Login = () => {
           <span className="text-4xl font-black text-white">CP</span>
         </div>
         
-        <h1 className="text-4xl font-black text-white mb-2">ClinicPulse</h1>
+        <h1 className="text-4xl font-black text-white mb-2">Radent Clinic</h1>
         <p className="text-slate-400 mb-10">Smart Attendance System</p>
 
         <form onSubmit={handleLogin} className="space-y-6 text-left">

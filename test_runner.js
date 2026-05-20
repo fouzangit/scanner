@@ -1,5 +1,5 @@
 // Test script for ClinicPulse calculations
-import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction } from './src/utils/calculateLate.js';
+import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction, createISTDate, checkShiftWindow } from './src/utils/calculateLate.js';
 import { calculatePayrollStats } from './src/utils/payrollUtils.js';
 
 console.log("==========================================");
@@ -26,28 +26,30 @@ function assert(condition, message) {
 console.log("--- 1. Testing Late Check-In Calculations (Assistant Morning: 09:00, Grace 30m) ---");
 
 // Check-in early at 08:45
-const t1 = new Date("2026-05-18T08:45:00");
+const t1 = createISTDate("2026-05-18", "08:45");
 assert(calculateLateMinutes(t1, 'assistant', 'morning') === 0, "Check-in before shift start should be 0 mins late");
 
 // Check-in exactly at 09:00
-const t2 = new Date("2026-05-18T09:00:00");
+const t2 = createISTDate("2026-05-18", "09:00");
 assert(calculateLateMinutes(t2, 'assistant', 'morning') === 0, "Check-in exactly at shift start should be 0 mins late");
 
 // Check-in within grace period (09:20)
-const t3 = new Date("2026-05-18T09:20:00");
+const t3 = createISTDate("2026-05-18", "09:20");
 assert(calculateLateMinutes(t3, 'assistant', 'morning') === 0, "Check-in within grace period (09:20) should be 0 mins late");
 
 // Check-in exactly at grace limit (09:30)
-const t4 = new Date("2026-05-18T09:30:00");
+const t4 = createISTDate("2026-05-18", "09:30");
 assert(calculateLateMinutes(t4, 'assistant', 'morning') === 0, "Check-in at grace limit (09:30) should be 0 mins late");
 
 // Check-in 1 minute past grace limit (09:31)
-const t5 = new Date("2026-05-18T09:31:00");
-assert(calculateLateMinutes(t5, 'assistant', 'morning') === 31, `Check-in 1 min past grace (09:31) should be 31 mins late (got ${calculateLateMinutes(t5, 'assistant', 'morning')})`);
+// Shift start 09:00 + grace 30m = grace limit 09:30. 09:31 is 1 min AFTER grace → penalty = 1 min.
+const t5 = createISTDate("2026-05-18", "09:31");
+assert(calculateLateMinutes(t5, 'assistant', 'morning') === 1, `Check-in 1 min past grace (09:31) should be 1 min penalized after grace (got ${calculateLateMinutes(t5, 'assistant', 'morning')})`);
 
 // Check-in extremely late (10:15)
-const t6 = new Date("2026-05-18T10:15:00");
-assert(calculateLateMinutes(t6, 'assistant', 'morning') === 75, `Check-in extremely late (10:15) should be 75 mins late (got ${calculateLateMinutes(t6, 'assistant', 'morning')})`);
+// Shift start 09:00. 10:15 - 09:00 = 75 min total, minus 30 grace = 45 min penalized.
+const t6 = createISTDate("2026-05-18", "10:15");
+assert(calculateLateMinutes(t6, 'assistant', 'morning') === 45, `Check-in extremely late (10:15) should be 45 mins penalized after grace (got ${calculateLateMinutes(t6, 'assistant', 'morning')})`);
 
 
 // ----------------------------------------
@@ -57,20 +59,21 @@ assert(calculateLateMinutes(t6, 'assistant', 'morning') === 75, `Check-in extrem
 console.log("\n--- 2. Testing Early Leave Calculations (Assistant Morning: End 15:00) ---");
 
 // Check-out late at 15:15
-const c1 = new Date("2026-05-18T15:15:00");
+const c1 = createISTDate("2026-05-18", "15:15");
 assert(calculateEarlyLeaveMinutes(c1, 'assistant', 'morning') === 0, "Check-out after shift end should be 0 mins early leave");
 
 // Check-out exactly at 15:00
-const c2 = new Date("2026-05-18T15:00:00");
+const c2 = createISTDate("2026-05-18", "15:00");
 assert(calculateEarlyLeaveMinutes(c2, 'assistant', 'morning') === 0, "Check-out exactly at shift end should be 0 mins early leave");
 
 // Check-out early at 14:30
-const c3 = new Date("2026-05-18T14:30:00");
+const c3 = createISTDate("2026-05-18", "14:30");
 assert(calculateEarlyLeaveMinutes(c3, 'assistant', 'morning') === 30, `Check-out early (14:30) should be 30 mins early leave (got ${calculateEarlyLeaveMinutes(c3, 'assistant', 'morning')})`);
 
 // Check-out extremely early (11:00)
-const c4 = new Date("2026-05-18T11:00:00");
+const c4 = createISTDate("2026-05-18", "11:00");
 assert(calculateEarlyLeaveMinutes(c4, 'assistant', 'morning') === 240, `Check-out extremely early (11:00) should be 240 mins early leave (got ${calculateEarlyLeaveMinutes(c4, 'assistant', 'morning')})`);
+
 
 
 // ----------------------------------------
@@ -137,6 +140,42 @@ assert(p4.finalSalary === 200, `High deductions should be subtracted correctly (
 const extremeLog2 = [{ date: "2026-05-01", attendance_status: "present", late_minutes: 700, deduction_amount: 1400 }];
 const p5 = calculatePayrollStats(extremeLog2, 120, 30000, "2026-05-01", "2026-05-18");
 assert(p5.finalSalary === 0, `Salary should never be negative, capped at 0 (got ₹${p5.finalSalary})`);
+
+
+// ----------------------------------------
+// Test Set 5: checkShiftWindow
+// ----------------------------------------
+console.log("\n--- 5. Testing Shift Check-In Window Validation ---");
+
+// Assistant Morning: starts 09:00, ends 15:00. Allowed window: 07:00 to 15:00.
+// Test: 1:13 AM (Should be invalid)
+const w1 = createISTDate("2026-05-18", "01:13");
+assert(checkShiftWindow(w1, 'assistant', 'morning').isValid === false, "1:13 AM should be outside Morning check-in window");
+
+// Test: 7:00 AM (Should be valid)
+const w2 = createISTDate("2026-05-18", "07:00");
+assert(checkShiftWindow(w2, 'assistant', 'morning').isValid === true, "7:00 AM should be inside Morning check-in window (start limit)");
+
+// Test: 8:55 AM (Should be valid)
+const w3 = createISTDate("2026-05-18", "08:55");
+assert(checkShiftWindow(w3, 'assistant', 'morning').isValid === true, "8:55 AM should be inside Morning check-in window");
+
+// Test: 3:00 PM (Should be valid)
+const w4 = createISTDate("2026-05-18", "15:00");
+assert(checkShiftWindow(w4, 'assistant', 'morning').isValid === true, "3:00 PM should be inside Morning check-in window (end limit)");
+
+// Test: 3:01 PM (Should be invalid)
+const w5 = createISTDate("2026-05-18", "15:01");
+assert(checkShiftWindow(w5, 'assistant', 'morning').isValid === false, "3:01 PM should be outside Morning check-in window");
+
+// Doctor Evening: starts 18:00, ends 21:00. Allowed window: 16:00 to 21:00.
+// Test: 3:59 PM (Should be invalid)
+const w6 = createISTDate("2026-05-18", "15:59");
+assert(checkShiftWindow(w6, 'doctor', 'evening').isValid === false, "3:59 PM should be outside Doctor Evening check-in window");
+
+// Test: 4:00 PM (Should be valid)
+const w7 = createISTDate("2026-05-18", "16:00");
+assert(checkShiftWindow(w7, 'doctor', 'evening').isValid === true, "4:00 PM should be inside Doctor Evening check-in window");
 
 
 console.log("\n==========================================");

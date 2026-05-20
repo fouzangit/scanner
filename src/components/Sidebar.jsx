@@ -30,7 +30,7 @@ const SidebarContent = ({ onClose }) => (
           <span className="text-xl font-bold">C</span>
         </div>
         <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-          ClinicPulse
+          Radent Clinic
         </h1>
       </div>
       {onClose && (

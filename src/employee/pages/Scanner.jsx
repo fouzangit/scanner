@@ -237,7 +237,7 @@ const Scanner = () => {
           </div>
           <div>
             <p className="text-xs text-slate-500 uppercase font-bold tracking-widest">Office Location</p>
-            <p className="text-sm font-bold text-white">Clinic Headquarters, Downtown</p>
+            <p className="text-sm font-bold text-white">Radent Clinic</p>
           </div>
         </div>
       </div>

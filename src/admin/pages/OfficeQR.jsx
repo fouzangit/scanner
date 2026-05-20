@@ -20,7 +20,7 @@ const OfficeQR = () => {
       >
         <div className="mb-10">
           <h1 className="text-5xl font-black text-white mb-4 tracking-tight">OFFICE SCANNER</h1>
-          <p className="text-slate-400 font-medium">Scan this code using the ClinicPulse PWA to mark your attendance</p>
+          <p className="text-slate-400 font-medium">Scan this code using the Radent Clinic app to mark your attendance</p>
         </div>
 
         <div className="relative p-12 bg-white rounded-[40px] shadow-glow shadow-white/10 group">
