@@ -36,6 +36,20 @@ const AdminGuard = ({ children }) => {
   return children;
 };
 
+// Dynamic Root Redirector
+const RootRedirect = () => {
+  const isAdmin = localStorage.getItem('clinic_admin_token') === 'true';
+  const isEmployee = localStorage.getItem('clinic_employee');
+
+  if (isAdmin) {
+    return <Navigate to="/admin" />;
+  }
+  if (isEmployee) {
+    return <Navigate to="/app" />;
+  }
+  return <Navigate to="/app/login" />;
+};
+
 const AdminLayout = ({ children }) => (
   <div className="flex min-h-screen bg-slate-950 bg-mesh">
     <Sidebar />
@@ -104,8 +118,8 @@ function App() {
         } />
 
         {/* Redirects */}
-        <Route path="/" element={<Navigate to="/app" />} />
-        <Route path="*" element={<Navigate to="/app" />} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

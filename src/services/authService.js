@@ -6,14 +6,19 @@ import { supabase } from './supabase';
  */
 
 export const authService = {
-  // Login using phone number with Device Binding
-  login: async (phone) => {
-    // 1. Get or create a persistent Device ID on this phone/browser
+  getOrCreateDeviceId: () => {
     let deviceId = localStorage.getItem('clinic_device_id');
     if (!deviceId) {
       deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
       localStorage.setItem('clinic_device_id', deviceId);
     }
+    return deviceId;
+  },
+
+  // Login using phone number with Device Binding
+  login: async (phone) => {
+    // 1. Get or create a persistent Device ID on this phone/browser
+    const deviceId = authService.getOrCreateDeviceId();
 
     // 2. Fetch employee
     const { data: employee, error } = await supabase

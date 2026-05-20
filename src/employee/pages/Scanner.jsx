@@ -42,7 +42,7 @@ const Scanner = () => {
           return;
         }
 
-        const localDeviceId = localStorage.getItem('clinic_device_id');
+        const localDeviceId = authService.getOrCreateDeviceId();
         
         // If device lock was reset (device_id is null) or linked to another device, force relogin
         if (!latestEmployee.allow_multiple_devices) {

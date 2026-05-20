@@ -7,6 +7,12 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+    if (localStorage.getItem('clinic_admin_token') === 'true') {
+      navigate('/admin');
+    }
+  }, []);
+
   const handleLogin = (e) => {
     e.preventDefault();
     // Simple admin password for this MVP (can be moved to Supabase later)
