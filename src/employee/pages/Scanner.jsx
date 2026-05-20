@@ -10,7 +10,8 @@ import { authService } from '../../services/authService';
 const Scanner = () => {
   const [employee, setEmployee] = useState(null);
   const [scanType, setScanType] = useState('checkin'); // 'checkin' or 'checkout'
-  const [isScanning, setIsScanning] = useState(true);
+  const [activeScanner, setActiveScanner] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
@@ -45,8 +46,11 @@ const Scanner = () => {
       return;
     }
 
-    setLoading(true);
+    // Immediately stop scanner stream and unmount to prevent race-condition loops
     setIsScanning(false);
+    setActiveScanner(false);
+    
+    setLoading(true);
     setStatusMsg('Validating Location...');
 
     try {
@@ -62,7 +66,6 @@ const Scanner = () => {
     } catch (err) {
       setErrorMsg(err.message || 'An unexpected error occurred.');
       setShowError(true);
-      setIsScanning(true);
       setLoading(false);
       setStatusMsg(getPlaceholderMsg());
     }
@@ -87,7 +90,11 @@ const Scanner = () => {
       {/* Tabs for Check In / Check Out */}
       <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-white/5 mb-6 relative">
         <button
-          onClick={() => setScanType('checkin')}
+          onClick={() => {
+            if (!loading) {
+              setScanType('checkin');
+            }
+          }}
           className={`flex-1 py-3 text-xs font-black tracking-widest uppercase transition-all rounded-xl relative z-10 ${
             scanType === 'checkin' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
           }`}
@@ -102,7 +109,11 @@ const Scanner = () => {
           )}
         </button>
         <button
-          onClick={() => setScanType('checkout')}
+          onClick={() => {
+            if (!loading) {
+              setScanType('checkout');
+            }
+          }}
           className={`flex-1 py-3 text-xs font-black tracking-widest uppercase transition-all rounded-xl relative z-10 ${
             scanType === 'checkout' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
           }`}
@@ -120,7 +131,41 @@ const Scanner = () => {
 
       <div className="flex-1 flex flex-col justify-center relative -mx-6">
         <div className="relative z-0">
-          <QRScanner onScan={handleScan} isScanning={isScanning} />
+          {activeScanner ? (
+            <div className="relative">
+              <QRScanner onScan={handleScan} isScanning={isScanning} />
+              <button
+                onClick={() => {
+                  setActiveScanner(false);
+                  setIsScanning(false);
+                }}
+                className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white w-10 h-10 rounded-full flex items-center justify-center z-30 border border-white/10 backdrop-blur-md transition-all text-lg font-black"
+                title="Cancel Scan"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="w-full max-w-md mx-auto aspect-[3/4] bg-slate-900/30 rounded-3xl border border-white/10 flex flex-col items-center justify-center p-8 backdrop-blur-sm text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-mesh opacity-30 pointer-events-none" />
+              <div className="w-24 h-24 bg-brand-500/10 text-brand-400 rounded-[32px] border border-brand-500/20 flex items-center justify-center text-4xl mb-8 shadow-glow shadow-brand-500/10 animate-pulse relative z-10">
+                📷
+              </div>
+              <h3 className="text-xl font-black text-white mb-2 relative z-10 uppercase tracking-wider">Ready to Scan</h3>
+              <p className="text-slate-400 text-sm max-w-xs mx-auto mb-8 relative z-10">
+                Ensure you are at the clinic and tap below to start the camera verification.
+              </p>
+              <button
+                onClick={() => {
+                  setActiveScanner(true);
+                  setIsScanning(true);
+                }}
+                className="btn-primary px-10 shadow-glow-brand uppercase tracking-widest text-xs font-black py-4 relative z-10"
+              >
+                Tap to Scan QR Code
+              </button>
+            </div>
+          )}
           
           <AnimatePresence>
             {loading && !showSuccess && (
@@ -137,19 +182,13 @@ const Scanner = () => {
           </AnimatePresence>
         </div>
 
-        <div className="absolute bottom-10 left-0 right-0 text-center z-10 px-10">
-          <p className="text-white text-sm font-bold bg-black/60 backdrop-blur-md py-3 px-6 rounded-2xl border border-white/5 inline-block mb-4 shadow-glass">
-            {statusMsg}
-          </p>
-          {!isScanning && !loading && (
-            <button 
-              onClick={() => setIsScanning(true)}
-              className="btn-primary w-full shadow-glow-brand"
-            >
-              RESUME SCANNER
-            </button>
-          )}
-        </div>
+        {activeScanner && (
+          <div className="absolute bottom-10 left-0 right-0 text-center z-10 px-10">
+            <p className="text-white text-sm font-bold bg-black/60 backdrop-blur-md py-3 px-6 rounded-2xl border border-white/5 inline-block mb-4 shadow-glass">
+              {statusMsg}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 p-6 glass-card bg-brand-600/10 border-brand-500/20">
@@ -168,7 +207,6 @@ const Scanner = () => {
         isOpen={showSuccess} 
         onClose={() => {
           setShowSuccess(false);
-          setIsScanning(true);
           setLoading(false);
           setStatusMsg(getPlaceholderMsg());
         }}
@@ -180,7 +218,6 @@ const Scanner = () => {
         isOpen={showError} 
         onClose={() => {
           setShowError(false);
-          setIsScanning(true);
           setLoading(false);
           setStatusMsg(getPlaceholderMsg());
         }}
