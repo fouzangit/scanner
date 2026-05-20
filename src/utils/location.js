@@ -9,6 +9,7 @@ export const getCurrentLocation = () => {
       return;
     }
 
+    // Try high accuracy first (5-second timeout)
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
@@ -17,9 +18,22 @@ export const getCurrentLocation = () => {
         });
       },
       (error) => {
-        reject(new Error(`Location error: ${error.message}`));
+        console.warn("High accuracy GPS failed, attempting low accuracy fallback:", error.message);
+        // Fallback to low accuracy (5-second timeout)
+        navigator.geolocation.getCurrentPosition(
+          (fallbackPosition) => {
+            resolve({
+              latitude: fallbackPosition.coords.latitude,
+              longitude: fallbackPosition.coords.longitude
+            });
+          },
+          (fallbackError) => {
+            reject(new Error(`Location error: ${fallbackError.message} (Fallback failed: ${error.message})`));
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
   });
 };
