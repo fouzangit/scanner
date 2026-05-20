@@ -35,10 +35,21 @@ const Employees = () => {
   };
 
   const handleDeleteEmployee = async (id) => {
-    if (window.confirm('Delete this employee?')) {
+    if (window.confirm('Delete this employee? This will permanently delete all their attendance records and history.')) {
+      // Delete associated attendance logs first to satisfy foreign key constraints
+      const { error: attendanceError } = await supabase.from('attendance').delete().eq('employee_id', id);
+      if (attendanceError) {
+        alert('Failed to clear attendance history: ' + attendanceError.message);
+        return;
+      }
+
+      // Now delete the employee row
       const { error } = await supabase.from('employees').delete().eq('id', id);
-      if (!error) fetchEmployees();
-      else alert(error.message);
+      if (!error) {
+        fetchEmployees();
+      } else {
+        alert(error.message);
+      }
     }
   };
 
