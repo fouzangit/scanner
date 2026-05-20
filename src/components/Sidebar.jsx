@@ -27,7 +27,7 @@ const SidebarContent = ({ onClose }) => (
     <div className="flex items-center justify-between mb-10 px-2">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-glow flex-shrink-0">
-          <span className="text-xl font-bold">C</span>
+          <span className="text-xl font-bold">R</span>
         </div>
         <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
           Radent Clinic

@@ -35,9 +35,8 @@ const Login = () => {
         setLoading(false);
       }
     } else {
-      // Admin Login
       setTimeout(() => { // small delay for nice animation feel
-        if (password === 'admin123') {
+        if (password === 'radent@2026!') {
           sessionStorage.setItem('clinic_admin_token', 'true');
           navigate('/admin');
         } else {
@@ -56,7 +55,7 @@ const Login = () => {
         className="w-full max-w-sm text-center"
       >
         <div className="w-24 h-24 bg-brand-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-glow shadow-brand-600/40 transform -rotate-6">
-          <span className="text-4xl font-black text-white">CP</span>
+          <span className="text-4xl font-black text-white">RC</span>
         </div>
         
         <h1 className="text-4xl font-black text-white mb-2">Radent Clinic</h1>
