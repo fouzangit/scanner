@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { authService } from '../../services/authService';
 
@@ -75,6 +75,10 @@ const Login = () => {
         <p className="mt-12 text-slate-500 text-sm">
           Protected by Enterprise Security
         </p>
+
+        <Link to="/admin" className="mt-4 text-xs font-bold uppercase tracking-widest text-slate-600 hover:text-brand-400 transition-all block">
+          ⚙️ Admin Portal
+        </Link>
       </motion.div>
       
       {/* Decorative Blur Blobs */}
