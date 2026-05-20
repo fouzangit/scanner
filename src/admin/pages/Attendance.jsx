@@ -4,6 +4,14 @@ import { formatCurrency } from '../../utils/payrollUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { calculateLateMinutes, calculateEarlyLeaveMinutes, calculateDeduction } from '../../utils/calculateLate';
 
+const formatTimeForInput = (isoString) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 const Attendance = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +22,7 @@ const Attendance = () => {
   const [showModal, setShowModal] = useState(false);
   const [employeesList, setEmployeesList] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [editingLogId, setEditingLogId] = useState(null);
   const [manualFormData, setManualFormData] = useState({
     employee_id: '',
     date: new Date().toISOString().split('T')[0],
@@ -43,6 +52,7 @@ const Attendance = () => {
       
       if (data) {
         setEmployeesList(data);
+        setEditingLogId(null);
         setManualFormData({
           employee_id: data[0]?.id || '',
           date: new Date().toISOString().split('T')[0],
@@ -54,6 +64,35 @@ const Attendance = () => {
       }
     } catch (err) {
       alert('Failed to load employees list: ' + err.message);
+    }
+  };
+
+  const handleEditLog = async (log) => {
+    try {
+      // Fetch employees list if not loaded yet
+      let list = employeesList;
+      if (list.length === 0) {
+        const { data } = await supabase
+          .from('employees')
+          .select('id, name, role, shift_type, hourly_rate')
+          .order('name');
+        if (data) {
+          setEmployeesList(data);
+          list = data;
+        }
+      }
+
+      setEditingLogId(log.id);
+      setManualFormData({
+        employee_id: log.employee_id,
+        date: log.date,
+        shift_type: log.shift_type,
+        check_in_time: formatTimeForInput(log.check_in_time),
+        check_out_time: log.check_out_time ? formatTimeForInput(log.check_out_time) : ''
+      });
+      setShowModal(true);
+    } catch (err) {
+      alert('Failed to open log editor: ' + err.message);
     }
   };
 
@@ -93,35 +132,11 @@ const Attendance = () => {
       
       const totalDeduction = lateDeduction + earlyDeduction;
       
-      // Check if attendance already exists for this employee, date and shift
-      const { data: existing } = await supabase
-        .from('attendance')
-        .select('id')
-        .eq('employee_id', employee_id)
-        .eq('date', date)
-        .eq('shift_type', shift_type)
-        .maybeSingle();
-        
-      if (existing) {
-        // Update existing record
+      if (editingLogId) {
+        // Direct Edit of an existing log
         const { error } = await supabase
           .from('attendance')
           .update({
-            check_in_time: checkInDate.toISOString(),
-            check_out_time: outDateISO,
-            late_minutes: lateMinutes,
-            early_leave_minutes: earlyLeaveMinutes,
-            deduction_amount: totalDeduction,
-            attendance_status: 'present'
-          })
-          .eq('id', existing.id);
-          
-        if (error) throw error;
-      } else {
-        // Insert new record
-        const { error } = await supabase
-          .from('attendance')
-          .insert([{
             employee_id,
             date,
             check_in_time: checkInDate.toISOString(),
@@ -130,18 +145,60 @@ const Attendance = () => {
             late_minutes: lateMinutes,
             early_leave_minutes: earlyLeaveMinutes,
             deduction_amount: totalDeduction,
-            attendance_status: 'present',
-            latitude: 0,
-            longitude: 0
-          }]);
+            attendance_status: 'present'
+          })
+          .eq('id', editingLogId);
           
         if (error) throw error;
+      } else {
+        // Upsert flow (for manual add)
+        const { data: existing } = await supabase
+          .from('attendance')
+          .select('id')
+          .eq('employee_id', employee_id)
+          .eq('date', date)
+          .eq('shift_type', shift_type)
+          .maybeSingle();
+          
+        if (existing) {
+          const { error } = await supabase
+            .from('attendance')
+            .update({
+              check_in_time: checkInDate.toISOString(),
+              check_out_time: outDateISO,
+              late_minutes: lateMinutes,
+              early_leave_minutes: earlyLeaveMinutes,
+              deduction_amount: totalDeduction,
+              attendance_status: 'present'
+            })
+            .eq('id', existing.id);
+            
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('attendance')
+            .insert([{
+              employee_id,
+              date,
+              check_in_time: checkInDate.toISOString(),
+              check_out_time: outDateISO,
+              shift_type,
+              late_minutes: lateMinutes,
+              early_leave_minutes: earlyLeaveMinutes,
+              deduction_amount: totalDeduction,
+              attendance_status: 'present',
+              latitude: 0,
+              longitude: 0
+            }]);
+            
+          if (error) throw error;
+        }
       }
       
       setShowModal(false);
       fetchLogs();
     } catch (err) {
-      alert('Error saving manual attendance: ' + err.message);
+      alert('Error saving attendance: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -238,12 +295,20 @@ const Attendance = () => {
             </div>
             <div className="flex justify-between items-center border-t border-white/5 pt-2 mt-2">
               <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{log.shift_type} Shift</span>
-              <button
-                onClick={() => handleDeleteLog(log.id)}
-                className="text-red-500/80 hover:text-red-400 text-[10px] font-black uppercase tracking-widest"
-              >
-                Delete Log
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleEditLog(log)}
+                  className="text-brand-400 hover:text-brand-350 text-[10px] font-black uppercase tracking-widest"
+                >
+                  Edit Log
+                </button>
+                <button
+                  onClick={() => handleDeleteLog(log.id)}
+                  className="text-red-500/80 hover:text-red-400 text-[10px] font-black uppercase tracking-widest"
+                >
+                  Delete Log
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -302,7 +367,13 @@ const Attendance = () => {
                     <span className="text-sm font-bold text-slate-600">--</span>
                   )}
                 </td>
-                <td className="p-5">
+                <td className="p-5 flex gap-3">
+                  <button
+                    onClick={() => handleEditLog(log)}
+                    className="text-brand-400 hover:text-brand-300 text-xs font-bold uppercase tracking-widest transition-all"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={() => handleDeleteLog(log.id)}
                     className="text-red-500/80 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-all"
@@ -324,7 +395,7 @@ const Attendance = () => {
               onClick={() => setShowModal(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
             <motion.div initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
               className="relative glass-card p-6 md:p-10 w-full sm:max-w-xl bg-slate-900 shadow-glow rounded-b-none sm:rounded-2xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl md:text-2xl font-black mb-6 md:mb-8">⚡ Add Manual Attendance</h3>
+              <h3 className="text-xl md:text-2xl font-black mb-6 md:mb-8">{editingLogId ? '⚡ Edit Attendance Log' : '⚡ Add Manual Attendance'}</h3>
               <form onSubmit={handleSaveManualAttendance} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                 <div className="col-span-1 sm:col-span-2">
                   <label className="label">Select Employee</label>
@@ -333,6 +404,7 @@ const Attendance = () => {
                     value={manualFormData.employee_id} 
                     onChange={e => setManualFormData({...manualFormData, employee_id: e.target.value})}
                     required
+                    disabled={editingLogId !== null}
                   >
                     <option value="" disabled>-- Choose Staff Member --</option>
                     {employeesList.map(emp => (
@@ -348,6 +420,7 @@ const Attendance = () => {
                     value={manualFormData.date} 
                     onChange={e => setManualFormData({...manualFormData, date: e.target.value})}
                     required 
+                    disabled={editingLogId !== null}
                   />
                 </div>
                 <div>
@@ -356,6 +429,7 @@ const Attendance = () => {
                     className="input-field" 
                     value={manualFormData.shift_type} 
                     onChange={e => setManualFormData({...manualFormData, shift_type: e.target.value})}
+                    disabled={editingLogId !== null}
                   >
                     <option value="morning">Morning</option>
                     <option value="evening">Evening</option>
@@ -382,7 +456,7 @@ const Attendance = () => {
                 </div>
                 <div className="col-span-1 sm:col-span-2 pt-4 flex gap-4">
                   <button type="submit" disabled={saving} className="btn-primary flex-1">
-                    {saving ? 'SAVING...' : 'SAVE ATTENDANCE'}
+                    {saving ? 'SAVING...' : 'SAVE CHANGES'}
                   </button>
                   <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-xs font-black text-slate-500 uppercase tracking-widest border border-white/5 rounded-xl">
                     CANCEL
