@@ -127,6 +127,22 @@ const Attendance = () => {
 
   const calculatedDeduction = showModal ? autoCalculateDeduction(manualFormData, employeesList) : 0;
 
+  // Shift mismatch warning
+  const getShiftWarning = (formData, empList) => {
+    const { employee_id, check_in_time, shift_type } = formData;
+    if (!employee_id || !check_in_time) return null;
+    const [inH] = check_in_time.split(':').map(Number);
+    if (shift_type === 'morning' && inH >= 15) {
+      return `⚠️ Check-in at ${check_in_time} is unusual for a Morning shift.`;
+    }
+    if (shift_type === 'evening' && inH < 12) {
+      return `⚠️ Check-in at ${check_in_time} is unusual for an Evening shift.`;
+    }
+    return null;
+  };
+
+  const shiftWarning = showModal ? getShiftWarning(manualFormData, employeesList) : null;
+
   const handleSaveManualAttendance = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -151,6 +167,12 @@ const Attendance = () => {
       if (check_out_time) {
         const [outH, outM] = check_out_time.split(':').map(Number);
         const checkOutDate = new Date(year, month - 1, day, outH, outM, 0, 0);
+
+        // ✅ Prevent checkout before check-in
+        if (checkOutDate.getTime() <= checkInDate.getTime()) {
+          throw new Error('❌ Check-out time cannot be before or equal to check-in time. Please correct the times.');
+        }
+
         outDateISO = checkOutDate.toISOString();
         earlyLeaveMinutes = calculateEarlyLeaveMinutes(outDateISO, emp.role, shift_type);
       }
@@ -467,15 +489,21 @@ const Attendance = () => {
                     onChange={e => setManualFormData({...manualFormData, check_in_time: e.target.value})}
                     required 
                   />
+                  {shiftWarning && (
+                    <p className="text-xs text-amber-400 font-bold mt-1">{shiftWarning}</p>
+                  )}
                 </div>
                 <div>
                   <label className="label">Check Out Time (Optional)</label>
                   <input 
                     type="time" 
-                    className="input-field" 
+                    className={`input-field ${manualFormData.check_out_time && manualFormData.check_in_time && manualFormData.check_out_time <= manualFormData.check_in_time ? 'border-red-500' : ''}`}
                     value={manualFormData.check_out_time} 
                     onChange={e => setManualFormData({...manualFormData, check_out_time: e.target.value})}
                   />
+                  {manualFormData.check_out_time && manualFormData.check_in_time && manualFormData.check_out_time <= manualFormData.check_in_time && (
+                    <p className="text-xs text-red-400 font-bold mt-1">❌ Check-out cannot be before or equal to check-in!</p>
+                  )}
                 </div>
                 <div className="col-span-1 sm:col-span-2">
                   <label className="label">Deduction Amount (₹)</label>
@@ -502,7 +530,11 @@ const Attendance = () => {
                   </p>
                 </div>
                 <div className="col-span-1 sm:col-span-2 pt-4 flex gap-4">
-                  <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  <button 
+                    type="submit" 
+                    disabled={saving || (manualFormData.check_out_time && manualFormData.check_in_time && manualFormData.check_out_time <= manualFormData.check_in_time)}
+                    className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     {saving ? 'SAVING...' : 'SAVE CHANGES'}
                   </button>
                   <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-xs font-black text-slate-500 uppercase tracking-widest border border-white/5 rounded-xl">
