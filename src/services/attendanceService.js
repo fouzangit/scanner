@@ -4,7 +4,7 @@ import { validateLocation } from '../utils/location';
 
 export const attendanceService = {
   // Mark attendance with GPS and Late/Early logic
-  markAttendance: async (employee) => {
+  markAttendance: async (employee, type = 'auto') => {
     try {
       // 1. Get Office Settings (Location + Radius)
       const { data: settings, error: settingsError } = await supabase
@@ -54,15 +54,35 @@ export const attendanceService = {
         .eq('shift_type', actualShiftType)
         .maybeSingle();
 
-      if (existing) {
+      if (type === 'checkout') {
+        if (!existing) {
+          throw new Error(`You must check in for your ${actualShiftType} shift before checking out.`);
+        }
         if (existing.check_out_time) {
+          throw new Error(`You have already checked out for your ${actualShiftType} shift.`);
+        }
+      }
+
+      if (type === 'checkin' && existing) {
+        throw new Error(`You have already checked in for your ${actualShiftType} shift.`);
+      }
+
+      const shouldCheckOut = type === 'checkout' || (type === 'auto' && existing);
+
+      if (shouldCheckOut) {
+        if (existing && existing.check_out_time) {
           throw new Error(`Attendance already completed for today's ${actualShiftType} shift.`);
+        }
+
+        const recordToUpdate = existing;
+        if (!recordToUpdate) {
+          throw new Error(`No check-in record found to check out.`);
         }
 
         // --- CHECK OUT FLOW ---
         const earlyMinutes = calculateEarlyLeaveMinutes(now, employee.role, actualShiftType);
         const earlyDeduction = calculateDeduction(earlyMinutes, employee.hourly_rate || 0);
-        const totalDeduction = (existing.deduction_amount || 0) + earlyDeduction;
+        const totalDeduction = (recordToUpdate.deduction_amount || 0) + earlyDeduction;
 
         const updatePayload = {
           check_out_time: now.toISOString(),
@@ -74,7 +94,7 @@ export const attendanceService = {
         const { data, error } = await supabase
           .from('attendance')
           .update(updatePayload)
-          .eq('id', existing.id)
+          .eq('id', recordToUpdate.id)
           .select()
           .single();
 
