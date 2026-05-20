@@ -13,6 +13,7 @@ const QRScanner = ({ onScan, isScanning }) => {
   }, [isScanning]);
 
   useEffect(() => {
+    let isMounted = true;
     let html5QrCode;
     
     try {
@@ -32,6 +33,15 @@ const QRScanner = ({ onScan, isScanning }) => {
       };
 
       Html5Qrcode.getCameras().then(devices => {
+        if (!isMounted) return;
+
+        // Double check container is still present in DOM before starting
+        const currentContainer = document.getElementById("qr-reader");
+        if (!currentContainer) {
+          console.warn("qr-reader container disappeared before scanner start.");
+          return;
+        }
+
         if (devices && devices.length > 0) {
           let cameraId = devices[0].id;
           // Prefer back camera for scanning (check for label presence safely)
@@ -43,21 +53,25 @@ const QRScanner = ({ onScan, isScanning }) => {
             config, 
             (decodedText) => {
               // Only fire scan event if scanning is active (prevents race-condition loops)
-              if (isScanningRef.current) {
+              if (isScanningRef.current && isMounted) {
                 if (navigator.vibrate) navigator.vibrate(100);
                 onScan(decodedText);
               }
             },
             (errorMessage) => {}
           ).catch(err => {
-            setError("Failed to start camera.");
+            if (isMounted) {
+              setError("Failed to start camera.");
+            }
             console.error(err);
           });
         } else {
           setError("No cameras found on device.");
         }
       }).catch(err => {
-        setError("Camera permission denied.");
+        if (isMounted) {
+          setError("Camera permission denied.");
+        }
         console.error(err);
       });
     } catch (err) {
@@ -67,14 +81,19 @@ const QRScanner = ({ onScan, isScanning }) => {
 
     // Cleanup and stop only when component unmounts
     return () => {
-      if (html5QrCode) {
-        html5QrCode.stop()
-          .then(() => {
-            console.log("Scanner stopped successfully on unmount.");
-          })
-          .catch(err => {
-            console.warn("Scanner stopped with warning:", err.message);
-          });
+      isMounted = false;
+      if (html5QrCode && html5QrCode.isScanning) {
+        try {
+          html5QrCode.stop()
+            .then(() => {
+              console.log("Scanner stopped successfully on unmount.");
+            })
+            .catch(err => {
+              console.warn("Scanner stopped with warning:", err);
+            });
+        } catch (err) {
+          console.warn("Failed to stop scanner synchronously:", err);
+        }
       }
     };
   }, []); // Run only once on mount
