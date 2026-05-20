@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { authService } from '../../services/authService';
 
 const Login = () => {
+  const [activeTab, setActiveTab] = useState('staff'); // 'staff' or 'admin'
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (localStorage.getItem('clinic_employee')) {
+    // If opening page, check if already logged in to redirect appropriately
+    if (localStorage.getItem('clinic_admin_token') === 'true') {
+      navigate('/admin');
+    } else if (localStorage.getItem('clinic_employee')) {
       navigate('/app');
     }
   }, []);
@@ -20,13 +25,26 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    try {
-      await authService.login(phone);
-      navigate('/app');
-    } catch (err) {
-      setError(err.message || 'Invalid phone number. Please contact admin.');
-    } finally {
-      setLoading(false);
+    if (activeTab === 'staff') {
+      try {
+        await authService.login(phone);
+        navigate('/app');
+      } catch (err) {
+        setError(err.message || 'Invalid phone number. Please contact admin.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Admin Login
+      setTimeout(() => { // small delay for nice animation feel
+        if (password === 'admin123') {
+          localStorage.setItem('clinic_admin_token', 'true');
+          navigate('/admin');
+        } else {
+          setError('Invalid Admin Password');
+        }
+        setLoading(false);
+      }, 500);
     }
   };
 
@@ -42,31 +60,77 @@ const Login = () => {
         </div>
         
         <h1 className="text-4xl font-black text-white mb-2">ClinicPulse</h1>
-        <p className="text-slate-400 mb-12">Smart Attendance System</p>
+        <p className="text-slate-400 mb-10">Smart Attendance System</p>
 
         <form onSubmit={handleLogin} className="space-y-6 text-left">
           <div className="glass-card p-8 bg-white/5 border-white/10">
-            <label className="label">Phone Number</label>
-            <input 
-              type="tel" 
-              placeholder="e.g. 9876543210"
-              className="input-field mb-4"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
+            {/* Tab Switcher */}
+            <div className="flex bg-white/5 p-1 rounded-xl mb-6 border border-white/5">
+              <button 
+                type="button"
+                onClick={() => { setActiveTab('staff'); setError(''); }}
+                className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+                  activeTab === 'staff' 
+                    ? 'bg-brand-600 text-white shadow-glow shadow-brand-600/30' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Staff
+              </button>
+              <button 
+                type="button"
+                onClick={() => { setActiveTab('admin'); setError(''); }}
+                className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
+                  activeTab === 'admin' 
+                    ? 'bg-slate-800 text-white border border-white/10' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Admin
+              </button>
+            </div>
+
+            {activeTab === 'staff' ? (
+              <div>
+                <label className="label">Phone Number</label>
+                <input 
+                  type="tel" 
+                  placeholder="e.g. 9876543210"
+                  className="input-field mb-4"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="label">Admin Password</label>
+                <input 
+                  type="password" 
+                  placeholder="••••••••"
+                  className="input-field mb-4"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             
-            {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
+            {error && <p className="text-red-400 text-sm mb-4 text-center font-bold">{error}</p>}
             
             <button 
               type="submit" 
               disabled={loading}
-              className="btn-primary w-full flex items-center justify-center gap-2"
+              className={`w-full flex items-center justify-center gap-2 py-4 text-sm font-black rounded-xl transition-all ${
+                activeTab === 'admin' 
+                  ? 'bg-slate-800 hover:bg-slate-700 text-white border border-white/10' 
+                  : 'btn-primary'
+              }`}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
               ) : (
-                <>SIGN IN <span>→</span></>
+                <>{activeTab === 'staff' ? 'SIGN IN' : 'ACCESS DASHBOARD'} <span>→</span></>
               )}
             </button>
           </div>
@@ -75,10 +139,6 @@ const Login = () => {
         <p className="mt-12 text-slate-500 text-sm">
           Protected by Enterprise Security
         </p>
-
-        <Link to="/admin" className="mt-4 text-xs font-bold uppercase tracking-widest text-slate-600 hover:text-brand-400 transition-all block">
-          ⚙️ Admin Portal
-        </Link>
       </motion.div>
       
       {/* Decorative Blur Blobs */}
