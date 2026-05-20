@@ -28,7 +28,7 @@ const PayrollCard = ({ payroll }) => {
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('CLINICPULSE DENTAL CLINIC', 20, 20);
+    doc.text('RADENT CLINIC', 20, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
