@@ -64,12 +64,12 @@ export const authService = {
 
   // Admin "auth" - simplified for demo or could use Supabase Auth
   isAdminLoggedIn: () => {
-    return localStorage.getItem('clinic_admin_token') === 'true';
+    return sessionStorage.getItem('clinic_admin_token') === 'true';
   },
 
   adminLogin: (password) => {
     if (password === 'admin123') { // Example static password
-      localStorage.setItem('clinic_admin_token', 'true');
+      sessionStorage.setItem('clinic_admin_token', 'true');
       return true;
     }
     return false;

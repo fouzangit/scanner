@@ -13,7 +13,7 @@ const Login = () => {
 
   React.useEffect(() => {
     // If opening page, check if already logged in to redirect appropriately
-    if (localStorage.getItem('clinic_admin_token') === 'true') {
+    if (sessionStorage.getItem('clinic_admin_token') === 'true') {
       navigate('/admin');
     } else if (localStorage.getItem('clinic_employee')) {
       navigate('/app');
@@ -38,7 +38,7 @@ const Login = () => {
       // Admin Login
       setTimeout(() => { // small delay for nice animation feel
         if (password === 'admin123') {
-          localStorage.setItem('clinic_admin_token', 'true');
+          sessionStorage.setItem('clinic_admin_token', 'true');
           navigate('/admin');
         } else {
           setError('Invalid Admin Password');

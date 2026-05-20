@@ -60,7 +60,7 @@ const SidebarContent = ({ onClose }) => (
     <div className="pt-6 border-t border-white/5">
       <button 
         onClick={() => {
-          localStorage.removeItem('clinic_admin_token');
+          sessionStorage.removeItem('clinic_admin_token');
           window.location.href = '/';
         }}
         className="nav-link w-full text-red-400 hover:bg-red-500/10 hover:text-red-300"

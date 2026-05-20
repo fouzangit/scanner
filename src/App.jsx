@@ -31,14 +31,14 @@ const EmployeeGuard = ({ children }) => {
 
 // Admin Guard
 const AdminGuard = ({ children }) => {
-  const isAdmin = localStorage.getItem('clinic_admin_token') === 'true';
+  const isAdmin = sessionStorage.getItem('clinic_admin_token') === 'true';
   if (!isAdmin) return <Navigate to="/admin/login" />;
   return children;
 };
 
 // Dynamic Root Redirector
 const RootRedirect = () => {
-  const isAdmin = localStorage.getItem('clinic_admin_token') === 'true';
+  const isAdmin = sessionStorage.getItem('clinic_admin_token') === 'true';
   const isEmployee = localStorage.getItem('clinic_employee');
 
   if (isAdmin) {
