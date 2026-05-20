@@ -20,6 +20,17 @@ const Attendance = () => {
     setLoading(false);
   };
 
+  const handleDeleteLog = async (id) => {
+    if (window.confirm('Delete this attendance log? This will reset the employee\'s attendance state for this shift.')) {
+      const { error } = await supabase.from('attendance').delete().eq('id', id);
+      if (!error) {
+        fetchLogs();
+      } else {
+        alert('Failed to delete log: ' + error.message);
+      }
+    }
+  };
+
   const filtered = logs.filter(log => {
     const matchName = log.employees?.name?.toLowerCase().includes(search.toLowerCase());
     const matchDate = dateFilter ? log.date === dateFilter : true;
@@ -93,6 +104,15 @@ const Attendance = () => {
                 <span className="text-red-400 font-black">-{formatCurrency(log.deduction_amount)}</span>
               )}
             </div>
+            <div className="flex justify-between items-center border-t border-white/5 pt-2 mt-2">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{log.shift_type} Shift</span>
+              <button
+                onClick={() => handleDeleteLog(log.id)}
+                className="text-red-500/80 hover:text-red-400 text-[10px] font-black uppercase tracking-widest"
+              >
+                Delete Log
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -102,7 +122,7 @@ const Attendance = () => {
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-white/5 bg-white/5">
-              {['Employee', 'Date', 'Check In', 'Check Out', 'Shift', 'Status', 'Deduction'].map(h => (
+              {['Employee', 'Date', 'Check In', 'Check Out', 'Shift', 'Status', 'Deduction', 'Actions'].map(h => (
                 <th key={h} className="p-5 text-xs font-black text-slate-400 uppercase tracking-widest">{h}</th>
               ))}
             </tr>
@@ -111,11 +131,11 @@ const Attendance = () => {
             {loading ? (
               Array(5).fill(0).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td colSpan="7" className="p-8"><div className="h-4 bg-white/5 rounded w-full" /></td>
+                  <td colSpan="8" className="p-8"><div className="h-4 bg-white/5 rounded w-full" /></td>
                 </tr>
               ))
             ) : filtered.length === 0 ? (
-              <tr><td colSpan="7" className="p-20 text-center text-slate-500">No attendance records found.</td></tr>
+              <tr><td colSpan="8" className="p-20 text-center text-slate-500">No attendance records found.</td></tr>
             ) : filtered.map((log) => (
               <tr key={log.id} className="hover:bg-white/5 transition-all">
                 <td className="p-5">
@@ -133,13 +153,13 @@ const Attendance = () => {
                 <td className="p-5">
                   {log.late_minutes > 0 ? (
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      <span className="text-xs font-bold text-amber-400">{log.late_minutes}m Late</span>
+                       <span className="w-2 h-2 rounded-full bg-amber-500" />
+                       <span className="text-xs font-bold text-amber-400">{log.late_minutes}m Late</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-xs font-bold text-green-400">On Time</span>
+                       <span className="w-2 h-2 rounded-full bg-green-500" />
+                       <span className="text-xs font-bold text-green-400">On Time</span>
                     </div>
                   )}
                 </td>
@@ -149,6 +169,14 @@ const Attendance = () => {
                   ) : (
                     <span className="text-sm font-bold text-slate-600">--</span>
                   )}
+                </td>
+                <td className="p-5">
+                  <button
+                    onClick={() => handleDeleteLog(log.id)}
+                    className="text-red-500/80 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-all"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
